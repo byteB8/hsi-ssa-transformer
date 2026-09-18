@@ -72,7 +72,7 @@ def predict(model, loader, device) -> tuple[np.ndarray, np.ndarray]:
     return np.concatenate(truth), np.concatenate(preds)
 
 
-def run(config: Config) -> dict:
+def run(config: Config) -> tuple[dict, nn.Module]:
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
     device = torch.device(
@@ -154,7 +154,7 @@ def run(config: Config) -> dict:
     scores = score(y_true, y_pred, n_classes)
     print(f"\n{config.model}: {scores}  ({train_seconds / 60:.1f} min train)")
 
-    return {
+    record = {
         "config": asdict(config),
         "parameters": params,
         "train_seconds": train_seconds,
@@ -162,6 +162,7 @@ def run(config: Config) -> dict:
         "scores": scores.as_dict(),
         "history": history,
     }
+    return record, model
 
 
 def main() -> None:
@@ -175,13 +176,18 @@ def main() -> None:
         else:
             parser.add_argument(f"--{name.replace('_', '-')}", type=type(value), default=value)
     parser.add_argument("--out", type=Path, help="write the run record here as JSON")
+    parser.add_argument("--checkpoint", type=Path, help="save the trained weights to this path")
     args = parser.parse_args()
 
-    values = {k: v for k, v in vars(args).items() if k != "out"}
+    values = {k: v for k, v in vars(args).items() if k not in {"out", "checkpoint"}}
     values["lr_drops"] = tuple(values["lr_drops"])
     config = Config(**values)
 
-    result = run(config)
+    result, model = run(config)
+    if args.checkpoint:
+        args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(model.state_dict(), args.checkpoint)
+        print(f"wrote {args.checkpoint}")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(result, indent=2))
