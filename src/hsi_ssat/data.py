@@ -5,14 +5,14 @@ Two sampling protocols are supported, and the choice matters more than the model
 ``fixed``      Dang et al. (2022) -- a fixed number of labelled pixels per class
                (400 for Pavia University), everything else is test. Training
                touches ~8% of the labelled pixels.
-``ratio``      the older HybridSN-style random split, where a fraction of *all*
+``ratio``      the conventional random split, where a fixed fraction of *all*
                labelled pixels is held out.
 
 Neither protocol removes the overlap between neighbouring patches, so a test
 patch always shares pixels with some training patch. ``ratio`` at 70% test makes
 that overlap near-total, which is the main reason accuracies above 99% are
-routinely reported on this scene. ``fixed`` is the more honest of the two and is
-the default here.
+routinely reported on this scene. ``fixed`` is the stricter of the two and is the
+default here.
 """
 
 from __future__ import annotations
@@ -74,9 +74,9 @@ def apply_pca(image: np.ndarray, n_components: int) -> np.ndarray:
 
     Neither whitening nor per-component standardisation is used. Both give every
     component unit variance, which inflates the low-variance components -- mostly
-    sensor noise -- into outliers reaching -145 sigma on this scene. HybridSN
-    trains for one epoch on inputs like that, diverges, and settles into an
-    all-dead-ReLU state at exactly ln(9) that it never leaves.
+    sensor noise -- into outliers reaching -145 sigma on this scene. Deep CNNs
+    fed inputs like that diverge within a few epochs and settle into an
+    all-dead-ReLU state at exactly ln(C).
 
     Dividing by one scalar keeps the relative importance of the components
     intact while bounding the range (about -13 to +33 here, with 0.1% of values

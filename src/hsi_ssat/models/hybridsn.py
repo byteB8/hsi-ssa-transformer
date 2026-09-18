@@ -1,14 +1,19 @@
-"""HybridSN and its CBAM variant, corrected.
+"""HybridSN: a hybrid 3D/2D convolutional network for hyperspectral classification.
 
-These are the two models from the original TEXMiN notebooks. Both carried the
-same defect: ``forward`` ended in ``torch.softmax(...)`` while the training loop
-used ``nn.CrossEntropyLoss``, which applies ``log_softmax`` internally. Softmax
-was therefore applied twice, which bounds the loss to [ln(1 + 8/e), ln 9] =
-[1.372, 2.197] for nine classes and starves the gradients. The CBAM run sat at
-1.89-1.99 for ten epochs as a result -- it never trained.
+Roy et al., "HybridSN: Exploring 3-D-2-D CNN Feature Hierarchy for Hyperspectral
+Image Classification", IEEE GRSL 2020 (arXiv:1902.06701).
 
-Both classes now return raw logits, which is what CrossEntropyLoss expects.
+Three 3D convolutions extract joint spectral-spatial structure, the spectral and
+channel axes are then folded together and a 2D convolution extracts the
+remaining spatial structure. ``use_cbam`` inserts a Convolutional Block
+Attention Module (Woo et al., ECCV 2018) after each 3D stage, giving the network
+a learned reweighting over feature channels and spatial positions.
+
+Both variants return raw logits: ``nn.CrossEntropyLoss`` applies ``log_softmax``
+itself, so a softmax in ``forward`` would apply it twice and cap the attainable
+loss well above zero.
 """
+
 
 from __future__ import annotations
 

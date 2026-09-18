@@ -1,4 +1,4 @@
-"""Guards against the defects found in the original TEXMiN notebooks."""
+"""Shape and numerical invariants for every model in the zoo."""
 
 from __future__ import annotations
 
@@ -26,9 +26,8 @@ def test_output_shape(name):
 
 @pytest.mark.parametrize("name", list(MODELS))
 def test_returns_logits_not_probabilities(name):
-    """The original notebooks ended forward() with softmax and then fed the
-    result to CrossEntropyLoss, applying softmax twice. Rows summing to one are
-    the signature of that bug."""
+    """Models must emit logits, since CrossEntropyLoss applies log_softmax
+    itself. Rows that already sum to one would mean softmax is applied twice."""
     shape, kwargs = MODELS[name]
     model = build_model(name, n_classes=9, **kwargs)
     out = model(torch.randn(*shape))
@@ -39,9 +38,9 @@ def test_returns_logits_not_probabilities(name):
 
 @pytest.mark.parametrize("name", list(MODELS))
 def test_loss_can_fall_below_double_softmax_floor(name):
-    """With softmax applied twice, cross-entropy on nine classes cannot drop
-    below ln(1 + 8/e) = 1.372 no matter how confident the model is. Overfitting
-    a single batch must beat that floor."""
+    """If softmax were applied twice, cross-entropy over nine classes could not
+    fall below ln(1 + 8/e) = 1.372 however confident the model became.
+    Overfitting a single batch must comfortably beat that bound."""
     floor = math.log(1 + 8 / math.e)
     shape, kwargs = MODELS[name]
     torch.manual_seed(0)

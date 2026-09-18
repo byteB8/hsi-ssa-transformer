@@ -1,16 +1,11 @@
 """Render the full-scene classification map for a trained model.
 
-The original notebook built each patch with
-
-    torch.tensor(patch).unsqueeze(0).unsqueeze(0).reshape(1, 1, bands, h, w)
-
-``reshape`` reinterprets the underlying buffer; it does not move axes. Going
-from (1, 1, h, w, bands) to (1, 1, bands, h, w) that way interleaves spectra
-with spatial positions, so the model saw scrambled input and the published
-ground-truth-versus-prediction figure did not correspond to the data. The fix is
-a transpose, which is what ``permute`` does -- here handled once by
-``extract_patches`` and a single ``np.transpose``.
+Patches leave ``extract_patches`` as (N, H, W, bands) and the models expect
+(N, bands, H, W). The conversion is a transpose, not a reshape: reshaping
+reinterprets the buffer in place and would interleave spectra with spatial
+positions.
 """
+
 
 from __future__ import annotations
 
