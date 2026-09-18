@@ -13,6 +13,15 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
+from scipy import stats
+
+# Pairs worth testing: each isolates one design decision.
+COMPARISONS = [
+    ("hybridsn", "hybridsn_cbam", "does CBAM help HybridSN?"),
+    ("ssa_transformer", "ssa_transformer_nodense", "does the dense connection help?"),
+    ("hybridsn", "ssa_transformer", "transformer vs CNN (different input geometry)"),
+]
+
 LABELS = {
     "hybridsn": "HybridSN",
     "hybridsn_cbam": "HybridSN + CBAM",
@@ -38,6 +47,40 @@ def spread(values: list[float]) -> str:
     return f"{mean:.2f} ± {statistics.stdev(values):.2f}"
 
 
+def compare(grouped: dict, alpha: float = 0.05) -> None:
+    """Welch t-tests on overall accuracy between paired configurations.
+
+    Every model here scores above 99%, so a difference of a few tenths is only
+    meaningful relative to the seed-to-seed spread. Welch is used rather than
+    Student because the variances are visibly unequal.
+    """
+    accuracies = {
+        model: [r["scores"]["overall_accuracy"] * 100 for r in records]
+        for (model, protocol), records in grouped.items()
+        if protocol == "fixed"
+    }
+    print("\nOverall accuracy, Welch two-sided t-test:")
+    for left, right, question in COMPARISONS:
+        if left not in accuracies or right not in accuracies:
+            continue
+        a, b = accuracies[left], accuracies[right]
+        if min(len(a), len(b)) < 2:
+            print(f"  {question}: not enough seeds")
+            continue
+        result = stats.ttest_ind(a, b, equal_var=False)
+        delta = statistics.mean(a) - statistics.mean(b)
+        verdict = (
+            "distinguishable"
+            if result.pvalue < alpha
+            else f"not distinguishable at n={min(len(a), len(b))}"
+        )
+        print(
+            f"  {question}\n"
+            f"    {LABELS.get(left, left)} - {LABELS.get(right, right)}: "
+            f"delta {delta:+.2f}  p = {result.pvalue:.3f}  -> {verdict}"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -47,6 +90,7 @@ def main() -> None:
         default=[Path("reports"), Path("reports/seeds")],
     )
     parser.add_argument("--markdown", action="store_true")
+    parser.add_argument("--compare", action="store_true", help="run Welch t-tests")
     args = parser.parse_args()
 
     grouped = collect([d for d in args.dirs if d.exists()])
@@ -86,6 +130,9 @@ def main() -> None:
                 f"{r['model']:<28}{r['protocol']:<8}{r['seeds']:>3}{r['params']:>11,}"
                 f"{r['oa']:>16}{r['aa']:>16}{r['kappa']:>16}"
             )
+
+    if args.compare:
+        compare(grouped)
 
 
 if __name__ == "__main__":
