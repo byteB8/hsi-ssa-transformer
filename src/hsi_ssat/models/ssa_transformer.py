@@ -154,9 +154,9 @@ class SSATransformer(nn.Module):
         )
         # Dense connection: block i consumes every earlier block's output, so the
         # concatenation is projected back to `dim` before being fed forward.
+        # Block i consumes the outputs of the i blocks before it.
         self.fusions = nn.ModuleList(
-            nn.Linear(dim * (i + 1), dim) if dense and i > 0 else nn.Identity()
-            for i in range(depth)
+            nn.Linear(dim * i, dim) if dense and i > 0 else nn.Identity() for i in range(depth)
         )
         self.norm = nn.LayerNorm(dim)
         self.head = nn.Linear(dim, n_classes)
