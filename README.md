@@ -11,6 +11,11 @@ seed-to-seed variation** — including the dense connection the paper proposes.
 
 [paper]: https://doi.org/10.1155/2022/7071485
 
+![Full-scene classification map](docs/figures/classification_map.png)
+
+*SSA-Transformer applied to every labelled pixel of the scene, trained on 400 pixels
+per class (8.4% of the labels).*
+
 ![Overall accuracy by model](docs/figures/accuracy.png)
 
 ---
@@ -137,6 +142,13 @@ HybridSN-over-SSA-Transformer gap looked large and significant (+0.36, p = 0.006
 by eight seeds it is +0.17 and indistinguishable. The CBAM gap changes sign
 entirely. Two or three runs on this benchmark are enough to produce a confident
 conclusion in either direction.
+
+### Full-scene inference
+
+Applying the trained model to every labelled pixel reproduces the reference map
+to 99.53% agreement. Residual errors concentrate on class boundaries, which is
+what patch-based classification predicts: a patch straddling two classes carries
+mixed evidence for its centre pixel.
 
 ### Per-class behaviour
 

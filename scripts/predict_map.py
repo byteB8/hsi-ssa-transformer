@@ -6,7 +6,6 @@ reinterprets the buffer in place and would interleave spectra with spatial
 positions.
 """
 
-
 from __future__ import annotations
 
 import argparse
@@ -19,6 +18,13 @@ from hsi_ssat.data import apply_pca, extract_patches, load_scene, standardise
 from hsi_ssat.models import build_model
 
 NEEDS_DEPTH_AXIS = {"hybridsn", "hybridsn_cbam"}
+
+DISPLAY_NAMES = {
+    "hybridsn": "HybridSN",
+    "hybridsn_cbam": "HybridSN + CBAM",
+    "ssa_transformer": "SSA-Transformer",
+    "ssa_transformer_nodense": "SSA-Transformer (no dense)",
+}
 
 # Pavia University palette, background first.
 PALETTE = np.array(
@@ -93,14 +99,20 @@ def main() -> None:
     except ImportError:
         raise SystemExit("matplotlib is needed for the figure: uv sync --extra viz") from None
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 6))
+    name = DISPLAY_NAMES.get(args.model, args.model)
+    fig, axes = plt.subplots(1, 2, figsize=(9, 6))
     for axis, data, title in (
         (axes[0], labels, "Ground truth"),
-        (axes[1], predicted, f"Predicted ({args.model})"),
+        (axes[1], predicted, f"{name}\n{agreement * 100:.2f}% agreement"),
     ):
         axis.imshow(colourise(data))
-        axis.set_title(title)
+        axis.set_title(title, fontsize=10)
         axis.axis("off")
+    fig.suptitle(
+        "Pavia University: full-scene classification",
+        fontsize=11,
+        y=0.97,
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(args.out, dpi=150)
