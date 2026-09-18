@@ -62,6 +62,8 @@ a dead-ReLU state at exactly ln(C).
 **SSA-Transformer** combines a convolutional attention front end with a
 dense-connected transformer encoder, following equations (1)–(8) of the paper:
 
+![Architecture](docs/figures/architecture.png)
+
 ```
 y'    = Conv1(y)              two 3×3 convolutions, spectral depth preserved
 y''   = Mse(y') ⊙ y'          spectral attention   (SeAM, eq. 2–3)
