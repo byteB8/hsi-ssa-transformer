@@ -1,7 +1,6 @@
 data/
 runs/
-reports/*.json
-reports/*.png
+logs/
 *.pt
 *.pth
 
