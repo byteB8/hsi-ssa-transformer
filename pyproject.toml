@@ -8,11 +8,10 @@ dependencies = [
     "numpy>=2.0",
     "scipy>=1.14",
     "scikit-learn>=1.5",
-    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
-viz = ["matplotlib>=3.9"]
+viz = ["matplotlib>=3.9"]   # figures in the README
 
 [dependency-groups]
 dev = ["ruff>=0.9", "pytest>=8.3"]
