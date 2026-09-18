@@ -269,6 +269,118 @@ def figure_per_class(records, out: Path) -> None:
     print(f"wrote {out}")
 
 
+def figure_architecture(out: Path) -> None:
+    """Schematic of the SSA-Transformer: CNN front end, then dense encoder stack."""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    fig, (top, bottom) = plt.subplots(
+        2, 1, figsize=(11, 5.2), gridspec_kw={"height_ratios": [1, 0.85]}
+    )
+
+    def box(axis, x, y, w, h, label, colour, fontsize=7.4):
+        axis.add_patch(
+            FancyBboxPatch(
+                (x, y),
+                w,
+                h,
+                boxstyle="round,pad=0.4,rounding_size=1.2",
+                facecolor=colour,
+                edgecolor="#4A5568",
+                linewidth=1.1,
+            )
+        )
+        axis.text(x + w / 2, y + h / 2, label, ha="center", va="center", fontsize=fontsize)
+
+    def arrow(axis, x0, y0, x1, y1, colour="#4A5568", style="-|>", conn=None, lw=1.1):
+        axis.add_patch(
+            FancyArrowPatch(
+                (x0, y0),
+                (x1, y1),
+                arrowstyle=style,
+                mutation_scale=11,
+                color=colour,
+                linewidth=lw,
+                **({"connectionstyle": conn} if conn else {}),
+            )
+        )
+
+    # --- top: the pipeline ---
+    top.set_xlim(0, 118)
+    top.set_ylim(0, 26)
+    top.axis("off")
+    top.grid(False)
+    blocks = [
+        (1, "Input patch\n15x15x103", "#DDE3EC", 13),
+        (16, "Conv1\n2x (3x3)", "#C7D7E8", 10),
+        (28, "SeAM\nspectral\nattention", "#9FC0E0", 11),
+        (41, "SaAM\nspatial attention\n(+residual)", "#9FC0E0", 13),
+        (56, "Conv2\n1x1, C->k", "#C7D7E8", 11),
+        (69, "Tokenise\n3x3 patches\n+ CLS + pos", "#E8D6C0", 13),
+        (84, "Encoder x4\ndense-connected", "#E0A98C", 15),
+        (101, "MLP head\n9 classes", "#DDE3EC", 12),
+    ]
+    for x, label, colour, width in blocks:
+        box(top, x, 8, width, 12, label, colour)
+        if x > 1:
+            arrow(top, x - 2.1, 14, x - 0.3, 14)
+    top.text(
+        41,
+        3.6,
+        "CNN front end: local spectral-spatial features",
+        ha="center",
+        fontsize=8,
+        color="#2C5282",
+    )
+    top.text(92, 3.6, "Transformer: global context", ha="center", fontsize=8, color="#9C4221")
+    top.plot([1, 67], [5.8, 5.8], color="#2C5282", lw=1.2)
+    top.plot([69, 113], [5.8, 5.8], color="#9C4221", lw=1.2)
+
+    # --- bottom: how the encoder blocks are wired ---
+    bottom.set_xlim(0, 118)
+    bottom.set_ylim(0, 40)
+    bottom.axis("off")
+    bottom.grid(False)
+    xs = [14, 40, 66, 92]
+    for index, x in enumerate(xs):
+        box(bottom, x, 7, 13, 9, f"Encoder {index + 1}\nMHSA + FFN", "#E0A98C", 7.2)
+        if index:
+            arrow(bottom, x - 1.6, 11.5, x - 0.3, 11.5)
+    # Skip links: block i also receives every earlier block's output.
+    for source, target, lift in [(0, 2, 0.30), (0, 3, 0.42), (1, 3, 0.24)]:
+        arrow(
+            bottom,
+            xs[source] + 6.5,
+            16.2,
+            xs[target] + 6.5,
+            16.2,
+            colour="#B5651D",
+            conn=f"arc3,rad=-{lift}",
+            lw=1.2,
+        )
+    bottom.text(
+        59,
+        24.4,
+        "Dense connection: block i consumes a learned projection of all i earlier outputs",
+        ha="center",
+        fontsize=8,
+        color="#B5651D",
+        style="italic",
+    )
+    bottom.text(
+        59,
+        3.2,
+        "concat -> Linear(dim x i -> dim) -> block i",
+        ha="center",
+        fontsize=7.4,
+        color="#666",
+    )
+
+    fig.tight_layout()
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reports", type=Path, default=Path("reports"))
@@ -281,6 +393,7 @@ def main() -> None:
     if not records:
         raise SystemExit("no run records found")
 
+    figure_architecture(args.out / "architecture.png")
     figure_accuracy(records, args.out / "accuracy.png")
     figure_curves(records, args.out / "convergence.png")
     figure_seed_sensitivity(records, args.out / "seed_sensitivity.png")
