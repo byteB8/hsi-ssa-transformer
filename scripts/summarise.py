@@ -31,12 +31,30 @@ LABELS = {
 
 
 def collect(directories: list[Path]) -> dict[tuple[str, str], list[dict]]:
-    grouped = defaultdict(list)
+    """Group run records by (model, protocol).
+
+    Non-run JSON (the optimiser-selection summary) is skipped, and a repeated
+    configuration is counted once so a re-run cannot inflate the seed count.
+    """
+    grouped, seen = defaultdict(list), set()
     for directory in directories:
         for path in sorted(directory.glob("*.json")):
             record = json.loads(path.read_text())
-            key = (record["config"]["model"], record["config"]["protocol"])
-            grouped[key].append(record)
+            config = record.get("config")
+            if config is None:
+                continue
+            identity = (
+                config["model"],
+                config["protocol"],
+                config["window"],
+                config["pca_components"],
+                config["seed"],
+                config.get("optimiser", "sgd"),
+            )
+            if identity in seen:
+                continue
+            seen.add(identity)
+            grouped[(config["model"], config["protocol"])].append(record)
     return grouped
 
 

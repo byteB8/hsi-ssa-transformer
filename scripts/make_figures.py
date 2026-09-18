@@ -60,10 +60,24 @@ def style() -> None:
 
 
 def load(directories: list[Path]) -> list[dict]:
-    records = []
+    """Read run records, skipping non-run JSON and duplicate configurations."""
+    records, seen = [], set()
     for directory in directories:
-        if directory.exists():
-            records += [json.loads(p.read_text()) for p in sorted(directory.glob("*.json"))]
+        if not directory.exists():
+            continue
+        for path in sorted(directory.glob("*.json")):
+            record = json.loads(path.read_text())
+            config = record.get("config")
+            if config is None:
+                continue  # e.g. the optimiser-selection summary
+            key = (
+                config["model"], config["protocol"], config["window"],
+                config["pca_components"], config["seed"], config.get("optimiser", "sgd"),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            records.append(record)
     return records
 
 
@@ -381,6 +395,84 @@ def figure_architecture(out: Path) -> None:
     print(f"wrote {out}")
 
 
+def figure_matched(matched_dir: Path, out: Path) -> None:
+    """Architecture comparison once both models receive identical input."""
+    from scipy import stats
+
+    records = load([matched_dir])
+    if not records:
+        print(f"no matched records in {matched_dir}, skipping")
+        return
+
+    grouped = defaultdict(list)
+    for record in records:
+        config = record["config"]
+        grouped[(config["pca_components"], config["model"])].append(
+            record["scores"]["overall_accuracy"] * 100
+        )
+
+    settings = [(15, "15 PCA bands"), (0, "all 103 bands")]
+    models = ["hybridsn", "ssa_transformer"]
+    fig, axis = plt.subplots(figsize=(7.2, 4))
+    width = 0.34
+    positions = np.arange(len(settings))
+    rng = np.random.default_rng(0)
+
+    for offset, model in zip((-width / 2, width / 2), models, strict=True):
+        means = [statistics.mean(grouped[(pca, model)]) for pca, _ in settings]
+        errors = [statistics.stdev(grouped[(pca, model)]) for pca, _ in settings]
+        axis.bar(
+            positions + offset,
+            means,
+            width,
+            yerr=errors,
+            capsize=4,
+            color=COLOURS[model],
+            alpha=0.85,
+            label=LABELS[model],
+            error_kw={"ecolor": "#333", "lw": 1.2},
+        )
+        for position, (pca, _) in zip(positions, settings, strict=True):
+            values = grouped[(pca, model)]
+            axis.scatter(
+                rng.normal(position + offset, 0.03, len(values)),
+                values,
+                s=11,
+                color="#222",
+                zorder=3,
+                alpha=0.7,
+            )
+
+    for position, (pca, _) in zip(positions, settings, strict=True):
+        a, b = grouped[(pca, "hybridsn")], grouped[(pca, "ssa_transformer")]
+        pvalue = stats.ttest_ind(a, b, equal_var=False).pvalue
+        top = max(max(a), max(b))
+        axis.text(
+            position,
+            top + 0.12,
+            f"p = {pvalue:.2f}",
+            ha="center",
+            fontsize=8,
+            color="#444",
+        )
+
+    axis.set_xticks(positions)
+    axis.set_xticklabels([label for _, label in settings])
+    axis.set_xlabel("Spectral input (15x15 patches throughout)")
+    axis.set_ylabel("Overall accuracy (%)")
+    axis.set_ylim(98.9, 100.15)
+    axis.set_title(
+        "Matched input geometry: neither architecture wins\n"
+        "(8 seeds, optimiser chosen per model on validation)",
+        fontsize=9,
+    )
+    axis.legend(fontsize=8, frameon=False, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reports", type=Path, default=Path("reports"))
@@ -398,6 +490,7 @@ def main() -> None:
     figure_curves(records, args.out / "convergence.png")
     figure_seed_sensitivity(records, args.out / "seed_sensitivity.png")
     figure_per_class(records, args.out / "per_class.png")
+    figure_matched(args.reports / "matched", args.out / "matched_geometry.png")
 
 
 if __name__ == "__main__":

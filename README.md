@@ -131,6 +131,8 @@ Welch two-sided t-tests on overall accuracy, n = 8 per group:
 | HybridSN vs SSA-Transformer | +0.17 | 0.216 | not distinguishable |
 
 **None of the three survives**, including the paper's dense-connection claim.
+The model comparison is revisited under matched input geometry
+[below](#separating-architecture-from-input-geometry), where the sign flips.
 
 This is not a conclusion that could have been reached from a small number of
 runs, and the figure below is the reason:
@@ -142,6 +144,33 @@ HybridSN-over-SSA-Transformer gap looked large and significant (+0.36, p = 0.006
 by eight seeds it is +0.17 and indistinguishable. The CBAM gap changes sign
 entirely. Two or three runs on this benchmark are enough to produce a confident
 conclusion in either direction.
+
+### Separating architecture from input geometry
+
+The benchmark above gives each model the input it was designed for, so the
+HybridSN lead confounds architecture with a larger spatial context (25x25 against
+15x15) and with spectral preprocessing. A second sweep removes that: both models
+receive **identical 15x15 patches**, at two spectral settings, with each model's
+optimiser chosen on a validation split carved from the training pixels.
+
+![Matched input geometry](docs/figures/matched_geometry.png)
+
+| Input (15x15 patches) | HybridSN | SSA-Transformer | Δ | p |
+|---|---|---|---:|---:|
+| 15 PCA bands | 99.68 ± 0.12 | **99.77 ± 0.08** | −0.08 | 0.13 |
+| all 103 bands | **99.46 ± 0.17** | 99.40 ± 0.14 | +0.07 | 0.42 |
+
+The lead **changes hands between the two settings** and neither difference is
+significant. The +0.17 advantage HybridSN showed in the main benchmark was
+therefore its 25x25 input, not its architecture: at equal input these two designs
+are not separable on this scene.
+
+Choosing the optimiser mattered more than choosing the architecture. Both models
+gain roughly 0.2–0.4 points over the paper's SGD schedule once the optimiser is
+selected on validation, and the two models do not agree on one — at 103 bands
+HybridSN prefers Adam while the transformer prefers SGD, and HybridSN under
+SGD at 0.01 collapses outright to 11.1% validation accuracy. Any architecture
+comparison run under a single shared optimiser is partly measuring the optimiser.
 
 ### Full-scene inference
 
@@ -181,6 +210,8 @@ src/hsi_ssat/
 scripts/
   run_pavia.sh             the benchmark sweep
   run_seeds.sh             seed repeats
+  run_matched.py           matched-geometry comparison
+  select_optimiser.py      per-model optimiser choice on validation
   summarise.py             aggregate table and significance tests
   make_figures.py          every figure in this README
   predict_map.py           full-scene classification map
