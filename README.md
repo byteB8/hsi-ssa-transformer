@@ -117,4 +117,66 @@ redistributed here.
 
 ## Results
 
-Populated by `scripts/run_pavia.sh`; see `reports/`.
+Pavia University. `fixed` is the Dang et al. protocol (400 labelled pixels per
+class, 3,600 train / 39,176 test); `ratio` is the older 30/70 random split.
+Eight seeds per configuration, mean +/- standard deviation.
+
+| Model | Split | Seeds | Params | OA (%) | AA (%) | Kappa (%) | Train (min) |
+|---|---|---:|---:|---|---|---|---:|
+| HybridSN | fixed | 8 | 4,844,793 | 99.56 ± 0.32 | 99.62 ± 0.21 | 99.40 ± 0.44 | 1.0 |
+| HybridSN | ratio | 1 | 4,844,793 | 99.97 | 99.87 | 99.96 | 3.5 |
+| HybridSN + CBAM | fixed | 8 | 4,845,489 | 99.59 ± 0.14 | 99.68 ± 0.08 | 99.44 ± 0.19 | 2.5 |
+| SSA-Transformer | fixed | 8 | 3,374,019 | 99.40 ± 0.14 | 99.49 ± 0.06 | 99.17 ± 0.19 | 4.1 |
+| SSA-Transformer (no dense) | fixed | 8 | 2,875,491 | 99.34 ± 0.15 | 99.45 ± 0.12 | 99.09 ± 0.21 | 4.0 |
+
+Reproduce with `python scripts/summarise.py --compare`.
+
+### What is and is not distinguishable
+
+Every configuration scores above 99%, so the interesting question is not which
+number is largest but which gaps survive the seed-to-seed spread. Welch
+two-sided t-tests on overall accuracy, n = 8:
+
+| Comparison | Delta OA | p | Verdict |
+|---|---:|---:|---|
+| HybridSN vs HybridSN + CBAM | -0.03 | 0.830 | not distinguishable |
+| SSA-Transformer, dense vs not | +0.06 | 0.419 | not distinguishable |
+| HybridSN vs SSA-Transformer | +0.17 | 0.216 | not distinguishable |
+
+**None of the three survive.** That includes the paper's headline claim for the
+dense connection, which this reimplementation cannot confirm on Pavia University
+at this sample size.
+
+This is worth stating carefully, because at three seeds the picture looked
+different and more flattering:
+
+| Comparison | n = 3 | n = 8 |
+|---|---|---|
+| HybridSN vs SSA-Transformer | +0.36, p = 0.006 **"significant"** | +0.17, p = 0.216 |
+| HybridSN vs HybridSN + CBAM | +0.24, p = 0.126 | -0.03, p = 0.830 |
+| dense vs not | +0.12, p = 0.500 | +0.06, p = 0.419 |
+
+The one result that reached significance at n = 3 evaporated at n = 8, and the
+CBAM gap changed sign. Three seeds were not enough to say anything here, and
+single-seed numbers -- the norm in the original notebooks -- are not evidence at
+all. Dang et al. average ten repeats for this reason.
+
+No run diverged: final training loss lies between 0.000 and 0.005 everywhere, so
+the spread is genuine variation in generalisation rather than unstable training.
+
+### An open question
+
+HybridSN's spread is more than twice CBAM's (sd 0.32 vs 0.14, a 5.4x variance
+ratio), which would suggest CBAM buys stability rather than accuracy. The
+evidence is not conclusive: Bartlett's test gives p = 0.040 but Levene's gives
+p = 0.356, and Levene is the more trustworthy of the two here because it does
+not assume normality and the HybridSN samples contain a low outlier. Resolving
+this needs more seeds.
+
+### On the protocol gap
+
+HybridSN scores 99.97 under the old 30/70 split against 99.56 +/- 0.32 under the
+400-per-class protocol. The gap is real but modest, because the model is
+saturated on this scene. A blanket claim that the older protocol inflates results
+by a large margin would overstate it on Pavia University, whatever is true of
+harder benchmarks.
