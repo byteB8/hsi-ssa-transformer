@@ -33,7 +33,12 @@ SCENES = {
 
 @dataclass(frozen=True)
 class Split:
-    """Patch cubes and labels for one fold, plus where each patch came from."""
+    """Patch cubes and labels for one fold, plus where each patch came from.
+
+    ``x_val`` is carved out of the training pool, never out of the test set, so
+    hyperparameters can be chosen without touching the data used to report
+    results.
+    """
 
     x_train: np.ndarray
     y_train: np.ndarray
@@ -41,6 +46,8 @@ class Split:
     y_test: np.ndarray
     train_coords: np.ndarray
     test_coords: np.ndarray
+    x_val: np.ndarray | None = None
+    y_val: np.ndarray | None = None
 
     @property
     def n_classes(self) -> int:
@@ -144,6 +151,7 @@ def build_split(
     protocol: str = "fixed",
     per_class: int = 400,
     test_ratio: float = 0.7,
+    val_per_class: int = 0,
     seed: int = 0,
 ) -> Split:
     image, labels = load_scene(root, scene)
@@ -159,6 +167,18 @@ def build_split(
     else:
         raise ValueError(f"unknown protocol {protocol!r}")
 
+    val_idx = np.array([], dtype=int)
+    if val_per_class:
+        # Carve validation out of the training pool so the test set stays unseen.
+        keep, held = [], []
+        for label in np.unique(targets[train_idx]):
+            pool = train_idx[targets[train_idx] == label]
+            pool = rng.permutation(pool)
+            held.append(pool[:val_per_class])
+            keep.append(pool[val_per_class:])
+        val_idx = np.concatenate(held)
+        train_idx = np.concatenate(keep)
+
     return Split(
         x_train=patches[train_idx],
         y_train=targets[train_idx],
@@ -166,4 +186,6 @@ def build_split(
         y_test=targets[test_idx],
         train_coords=coords[train_idx],
         test_coords=coords[test_idx],
+        x_val=patches[val_idx] if val_per_class else None,
+        y_val=targets[val_idx] if val_per_class else None,
     )

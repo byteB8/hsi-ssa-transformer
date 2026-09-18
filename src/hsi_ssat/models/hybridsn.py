@@ -14,7 +14,6 @@ itself, so a softmax in ``forward`` would apply it twice and cap the attainable
 loss well above zero.
 """
 
-
 from __future__ import annotations
 
 import torch
