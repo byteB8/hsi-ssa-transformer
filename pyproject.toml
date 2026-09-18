@@ -1,7 +1,7 @@
 [project]
 name = "hsi-ssat"
 version = "0.1.0"
-description = "Spectral-Spatial Attention Transformer with Dense Connection for hyperspectral image classification, with corrected CBAM and HybridSN baselines."
+description = "Spectral-Spatial Attention Transformer for hyperspectral image classification, benchmarked against HybridSN and CBAM over repeated seeds."
 requires-python = ">=3.11"
 dependencies = [
     "torch>=2.5",
