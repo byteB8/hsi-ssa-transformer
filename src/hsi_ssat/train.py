@@ -37,6 +37,7 @@ class Config:
     test_ratio: float = 0.7
     epochs: int = 80
     batch_size: int = 32
+    optimiser: str = "sgd"
     lr: float = 0.01
     momentum: float = 0.9
     weight_decay: float = 0.0
@@ -102,12 +103,19 @@ def run(config: Config) -> dict:
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"  model {config.model}: {params:,} trainable parameters on {device}")
 
-    optimiser = torch.optim.SGD(
-        model.parameters(),
-        lr=config.lr,
-        momentum=config.momentum,
-        weight_decay=config.weight_decay,
-    )
+    if config.optimiser == "sgd":
+        optimiser = torch.optim.SGD(
+            model.parameters(),
+            lr=config.lr,
+            momentum=config.momentum,
+            weight_decay=config.weight_decay,
+        )
+    elif config.optimiser == "adam":
+        optimiser = torch.optim.Adam(
+            model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+        )
+    else:
+        raise ValueError(f"unknown optimiser {config.optimiser!r}")
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimiser, milestones=list(config.lr_drops), gamma=config.lr_gamma
     )

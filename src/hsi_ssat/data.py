@@ -70,10 +70,23 @@ def standardise(image: np.ndarray) -> np.ndarray:
 
 
 def apply_pca(image: np.ndarray, n_components: int) -> np.ndarray:
+    """Reduce the spectral axis, then rescale by a single global factor.
+
+    Neither whitening nor per-component standardisation is used. Both give every
+    component unit variance, which inflates the low-variance components -- mostly
+    sensor noise -- into outliers reaching -145 sigma on this scene. HybridSN
+    trains for one epoch on inputs like that, diverges, and settles into an
+    all-dead-ReLU state at exactly ln(9) that it never leaves.
+
+    Dividing by one scalar keeps the relative importance of the components
+    intact while bounding the range (about -13 to +33 here, with 0.1% of values
+    beyond 10 sigma).
+    """
     if not n_components or n_components >= image.shape[-1]:
         return image
     flat = image.reshape(-1, image.shape[-1])
-    reduced = PCA(n_components=n_components, whiten=True).fit_transform(flat)
+    reduced = PCA(n_components=n_components, whiten=False).fit_transform(flat)
+    reduced = reduced / reduced.std()
     return reduced.reshape(image.shape[0], image.shape[1], n_components).astype(np.float32)
 
 
